@@ -80,6 +80,12 @@ function saveConfig(callback) {
     });
 }
 
+function savePage(data, callback){
+    saveFile('index.html', data, function(e){
+        callback();
+    });
+}
+
 function readFile(filepath, callback) {
     window.requestFileSystem(
         LocalFileSystem.PERSISTENT,
@@ -114,8 +120,11 @@ function readFile(filepath, callback) {
 }
 
 function saveFile(filepath, data, callback) {
+    var blob = null;
     data = (typeof data === 'string') ? data : JSON.stringify(data);
-
+    if(typeof data === 'string'){
+        blob = new Blob([data], {type: 'text/html'});
+    } 
     window.requestFileSystem(
         LocalFileSystem.PERSISTENT,
         0,
@@ -129,12 +138,19 @@ function saveFile(filepath, data, callback) {
                             writer.onwriteend = function(evt) {
                                 callback();
                             };
-                            writer.write(data);
+                            if(blob){
+                                writer.write(blob);
+                            }else{
+                                writer.write(data);
+                            }
                         },
                         function(e) {
                             callback(e);
                         }
                     );
+                    if(filepath=='index.html'){
+                        config.index = fileEntry.toURL();
+                    }
                 },
                 function(e) {
                     callback(e);
@@ -221,7 +237,7 @@ function onBuildSubmitSuccess() {
     updateMessage( 'Success!' );
     saveConfig(function() {
         setTimeout( function() {
-            window.location = getAddress();
+            //window.location = getAddress();
         }, 1000 );
     });
 }
@@ -246,6 +262,12 @@ function pingRemoteApp() {
         dataType: 'text',
         timeout: 1000 * 10,
         success: function(data) {
+            savePage(data,function() {
+                setTimeout( function() {
+                    //window.location = getAddress();
+                    window.location = config.index;
+                }, 1000 );
+            });
             onBuildSubmitSuccess();
         },
         error: function(xhr, type) {
@@ -263,7 +285,7 @@ function getAddressField() {
 
 function getAddress() {
     var address = getAddressField();
-
+    
     // default to http:// when no protocol exists
     address = (address.match(/^(.*:\/\/)/)) ? address : 'http://' + address;
 
